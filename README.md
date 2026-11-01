@@ -1,4 +1,4 @@
-# Capital Bikeshare — Operations & Demand Dashboard
+# Capital Bikeshare Operations & Demand Dashboard
 
 **[View Live Dashboard](https://wisemirza.github.io/Capital-bikeshare-dashboard/)**
 
