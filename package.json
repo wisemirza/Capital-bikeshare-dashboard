@@ -1,0 +1,18 @@
+{
+  "name": "capital-bikeshare-dashboard",
+  "version": "1.0.0",
+  "description": "Executive operations demand dashboard for Capital Bikeshare (Washington D.C.)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "capital-bikeshare",
+    "dashboard",
+    "chartjs",
+    "tailwindcss",
+    "data-visualization"
+  ],
+  "author": "",
+  "license": "MIT"
+}

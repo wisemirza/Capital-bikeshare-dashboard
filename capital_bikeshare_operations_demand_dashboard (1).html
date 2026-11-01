@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Capital Bikeshare — Operations Overview (2011–2012)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            canvas: '#DCE4F2',
+            card: '#FFFFFF',
+            ink: '#111827',
+            muted: '#64748B',
+            subtle: '#94A3B8',
+            brandBlue: '#1D6EF5',
+            brandSky: '#93C5FD',
+            brandMint: '#6EE7B7',
+            pillGreenBg: '#E6F7ED',
+            pillGreenText: '#16A34A'
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      background-color: #DCE4F2;
+      color: #111827;
+      font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Reference-matched Pure White Soft Cards */
+    .ref-card {
+      background: #FFFFFF;
+      border-radius: 24px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    /* Reference-matched Pill Switcher */
+    .pill-group {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 9999px;
+      padding: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pill-btn {
+      border-radius: 9999px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #475569;
+      transition: all 0.18s ease;
+      white-space: nowrap;
+    }
+
+    .pill-btn:hover {
+      color: #111827;
+    }
+
+    .pill-btn-active {
+      background: #111827;
+      color: #FFFFFF !important;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(17, 24, 39, 0.18);
+    }
+
+    /* Reference-matched Green Delta Pill */
+    .delta-pill {
+      background-color: #E6F7ED;
+      color: #16A34A;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .neutral-pill {
+      background-color: #EFF6FF;
+      color: #1D6EF5;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Subtle Info Tooltip */
+    .info-trigger {
+      position: relative;
+      cursor: pointer;
+    }
+    .info-trigger .tooltip-box {
+      visibility: hidden;
+      opacity: 0;
+      position: absolute;
+      right: 0;
+      top: 28px;
+      width: 220px;
+      background: #111827;
+      color: #FFFFFF;
+      font-size: 11px;
+      line-height: 1.45;
+      padding: 10px 12px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
+      z-index: 50;
+      transition: opacity 0.15s ease;
+      pointer-events: none;
+    }
+    .info-trigger:hover .tooltip-box {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    /* Heatmap Block Hover Fade-In Animation */
+    .hm-cell .hm-val {
+      opacity: 0;
+      transform: scale(0.85);
+      transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+      user-select: none;
+    }
+    .hm-cell:hover .hm-val {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Custom Range Slider */
+    input[type="range"] {
+      accent-color: #1D6EF5;
+      height: 5px;
+      border-radius: 999px;
+      background: #E2E8F0;
+    }
+  </style>
+</head>
+<body class="min-h-screen py-6 px-4 sm:px-8 lg:px-10">
+
+  <!-- MAIN CONTAINER -->
+  <div class="max-w-[1360px] mx-auto space-y-6">
+
+    <!-- ================================================================= -->
+    <!-- MINIMAL TOP HEADER & GLOBAL PILL FILTERS                          -->
+    <!-- ================================================================= -->
+    <header class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-1">
+      <div class="flex items-center gap-3.5">
+        <div class="w-10 h-10 rounded-full bg-brandBlue text-white flex items-center justify-center shadow-sm">
+          <i class="fa-solid fa-bicycle text-sm"></i>
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-semibold tracking-tight text-ink">
+            Capital Bikeshare <span class="font-normal text-muted mx-1">•</span> <span class="font-normal text-slate-600">Operations Overview</span>
+          </h1>
+          <p class="text-xs text-muted">Washington D.C. Historical Demand (2011–2012 • 731 Days • 17,379 Hours)</p>
+        </div>
+      </div>
+
+      <!-- Clean Pill Controls Matching Reference Image -->
+      <div class="flex flex-wrap items-center gap-2.5">
+        <!-- Year Filter -->
+        <div class="pill-group bg-white/80 backdrop-blur-sm">
+          <button onclick="setGlobalYear('all')" id="yr-all" class="pill-btn pill-btn-active">• 2011–2012</button>
+          <button onclick="setGlobalYear('2011')" id="yr-2011" class="pill-btn">2011</button>
+          <button onclick="setGlobalYear('2012')" id="yr-2012" class="pill-btn">2012</button>
+        </div>
+
+        <!-- Day Regime Filter -->
+        <div class="pill-group bg-white/80 backdrop-blur-sm">
+          <button onclick="setGlobalDayType('all')" id="dt-all" class="pill-btn pill-btn-active">• All Days</button>
+          <button onclick="setGlobalDayType('working')" id="dt-working" class="pill-btn">Working Days</button>
+          <button onclick="setGlobalDayType('weekend')" id="dt-weekend" class="pill-btn">Weekends &amp; Hol</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ================================================================= -->
+    <!-- VIEW 1: CLEAN VISUAL DASHBOARD (MATCHING REFERENCE IMAGE)         -->
+    <!-- ================================================================= -->
+    <main id="dashboardView" class="space-y-6">
+
+      <!-- TOP ROW: 4 CLEAN KPI CARDS (EXACT REFERENCE STRUCTURE) -->
+      <section aria-label="Key Performance Metrics" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        
+        <!-- KPI Card 1: Total Rentals (Primary Blue Icon like Reference "Total Orders") -->
+        <div class="ref-card p-6 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-brandBlue text-white flex items-center justify-center shadow-sm shadow-blue-500/20">
+                <i class="fa-solid fa-bicycle text-sm"></i>
+              </div>
+              <span id="kpi1Title" class="text-sm font-medium text-slate-700">Total Rentals</span>
+            </div>
+            <div class="info-trigger text-slate-400 hover:text-slate-600">
+              <i class="fa-regular fa-circle-question text-base"></i>
+              <div class="tooltip-box">Total completed bike trips across Washington D.C. (casual + registered = cnt).</div>
+            </div>
+          </div>
+
+          <div class="my-4">
+            <span id="kpi1Value" class="text-[36px] leading-none font-medium tracking-tight text-ink">3,292,679</span>
+          </div>
+
+          <div class="flex items-center gap-2.5">
+            <span id="kpi1Pill" class="delta-pill">↑ 64.9%</span>
+            <span id="kpi1Sub" class="text-xs text-muted">From 2011 baseline:</span>
+          </div>
+        </div>
+
+        <!-- KPI Card 2: Daily Average Demand -->
+        <div class="ref-card p-6 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center">
+                <i class="fa-regular fa-calendar-check text-sm"></i>
+              </div>
+              <span class="text-sm font-medium text-slate-700">Daily Avg Demand</span>
+            </div>
+            <div class="info-trigger text-slate-400 hover:text-slate-600">
+              <i class="fa-regular fa-circle-question text-base"></i>
+              <div class="tooltip-box">Mean rentals per day across 731 days. Max day: 8,714 (Sep 15, 2012). Min: 22 (Hurricane Sandy).</div>
+            </div>
+          </div>
+
+          <div class="my-4 flex items-baseline gap-1">
+            <span id="kpi2Value" class="text-[36px] leading-none font-medium tracking-tight text-ink">4,504</span>
+            <span id="kpi2Dec" class="text-xl font-normal text-slate-400">.3 /d</span>
+          </div>
+
+          <div class="flex items-center gap-2.5">
+            <span id="kpi2Pill" class="delta-pill">↑ 5.9%</span>
+            <span id="kpi2Sub" class="text-xs text-muted">Working vs. Weekend:</span>
+          </div>
+        </div>
+
+        <!-- KPI Card 3: Registered Rentals -->
+        <div class="ref-card p-6 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center">
+                <i class="fa-regular fa-id-badge text-sm"></i>
+              </div>
+              <span id="kpi3Title" class="text-sm font-medium text-slate-700">Registered Rentals</span>
+            </div>
+            <div class="info-trigger text-slate-400 hover:text-slate-600">
+              <i class="fa-regular fa-circle-question text-base"></i>
+              <div class="tooltip-box">Rental trips made by registered passholders (81.17% overall). The dataset logs rental trips, not unique individual customers.</div>
+            </div>
+          </div>
+
+          <div class="my-4">
+            <span id="kpi3Value" class="text-[36px] leading-none font-medium tracking-tight text-ink">2,672,662</span>
+          </div>
+
+          <div class="flex items-center gap-2.5">
+            <span id="kpi3Pill" class="delta-pill">81.2% Share</span>
+            <span id="kpi3Sub" class="text-xs text-muted">Registered (3,656/d)</span>
+          </div>
+        </div>
+
+        <!-- KPI Card 4: Casual Rentals -->
+        <div class="ref-card p-6 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center">
+                <i class="fa-regular fa-sun text-sm"></i>
+              </div>
+              <span id="kpi4Title" class="text-sm font-medium text-slate-700">Casual Rentals</span>
+            </div>
+            <div class="info-trigger text-slate-400 hover:text-slate-600">
+              <i class="fa-regular fa-circle-question text-base"></i>
+              <div class="tooltip-box">Rental trips made by casual non-registered users (single-ride &amp; 24h day passes, 18.83% overall). Surges on weekends.</div>
+            </div>
+          </div>
+
+          <div class="my-4">
+            <span id="kpi4Value" class="text-[36px] leading-none font-medium tracking-tight text-ink">620,017</span>
+          </div>
+
+          <div class="flex items-center gap-2.5">
+            <span id="kpi4Pill" class="delta-pill">↑ 126.0%</span>
+            <span id="kpi4Sub" class="text-xs text-muted">Casual (848.2/d)</span>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- MIDDLE ROW: HERO INSIGHTS CHART (8 COLS) + CLEAR SUBSCRIBED VS CASUAL GAUGE (4 COLS) -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        <!-- Left Hero Card (Interactive Clickable Bars!) -->
+        <div class="lg:col-span-8 ref-card p-7 flex flex-col justify-between">
+          <div>
+            <!-- Top Row: Title + Scope Badge + Pill Switcher -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 id="heroChartTitle" class="text-lg font-semibold text-ink">Monthly Demand Insights (Jan–Dec)</h2>
+              </div>
+
+              <!-- Reference-Matched Pill Mode Switcher -->
+              <div class="pill-group self-start sm:self-auto">
+                <button onclick="setHeroMode('monthly')" id="hbtn-monthly" class="pill-btn pill-btn-active">• Monthly</button>
+                <button onclick="setHeroMode('hourly')" id="hbtn-hourly" class="pill-btn">Hourly (0–23h)</button>
+                <button onclick="setHeroMode('seasonal')" id="hbtn-seasonal" class="pill-btn">Seasons</button>
+                <button onclick="setHeroMode('weather')" id="hbtn-weather" class="pill-btn">Weather (°C)</button>
+              </div>
+            </div>
+
+            <!-- Second Row: Big Dynamic Selected Bar Metric + Pill + Legend Dots -->
+            <div class="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div class="flex items-baseline gap-3 flex-wrap">
+                <div>
+                  <span id="heroBigNumber" class="text-3xl sm:text-4xl font-semibold tracking-tight text-ink">5,772</span>
+                  <span id="heroBigSuffix" class="text-xl sm:text-2xl font-normal text-slate-400">.4 /day</span>
+                </div>
+                <span id="heroDeltaPill" class="delta-pill">Selected: June (Peak)</span>
+              </div>
+
+              <!-- Minimal Legend Dots -->
+              <div id="heroLegend" class="flex items-center gap-5 text-xs font-medium text-slate-600">
+                <span class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-brandBlue inline-block"></span>
+                  <span id="leg1Text">Selected Bar</span>
+                </span>
+                <span class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-brandMint inline-block"></span>
+                  <span id="leg2Text">Registered (4,541/d)</span>
+                </span>
+                <span class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block"></span>
+                  <span id="leg3Text">Casual (1,232/d)</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chart Canvas Container -->
+          <div class="relative h-[265px] w-full mt-4">
+            <canvas id="heroCanvas" class="cursor-pointer"></canvas>
+          </div>
+
+          <!-- Quick-Select Bar Pills (Lets user click Jan, Feb, Mar... directly too!) -->
+          <div id="barSelectorStrip" class="mt-3 flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100"></div>
+
+          <!-- Subtle Bottom Metric Bar -->
+          <div class="mt-3 pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-muted">
+            <span id="heroTakeaway">
+              <strong>June Breakdown:</strong> 4,541/day Registered rentals + 1,232/day Casual rentals.
+            </span>
+            <span id="heroSubRight" class="font-medium text-slate-700 whitespace-nowrap">Avg Temp: 28.0°C</span>
+          </div>
+        </div>
+
+        <!-- Right Overview Card: Semicircular Multi-Bar Gauge + Weekly Line Chart -->
+        <div class="lg:col-span-4 ref-card p-6 sm:p-7 flex flex-col justify-between gap-3">
+          <div>
+            <div class="flex items-center justify-between">
+              <h2 class="text-lg font-semibold text-ink">Rental Type Mix</h2>
+              <span id="gaugeFilterBadge" class="neutral-pill">2011–2012 (All Days)</span>
+            </div>
+
+            <!-- Custom Segmented Semicircular Gauge (+0.5% Sizing Adjustment) -->
+            <div class="relative w-full max-w-[281.5px] sm:max-w-[305.5px] mx-auto mt-3 mb-1 flex flex-col items-center">
+              <svg id="segmentedGaugeSvg" viewBox="0 0 300 160" class="w-full overflow-visible">
+                <g id="gaugeSegmentsGroup"></g>
+              </svg>
+              <div class="absolute inset-x-0 bottom-1 flex flex-col items-center justify-center text-center pointer-events-none">
+                <div id="gaugeBigPct" class="text-2xl sm:text-[27px] font-semibold tracking-tight text-ink leading-tight">81.2%</div>
+                <div id="gaugeCenterLabel" class="text-[11px] font-normal text-muted mt-0.5">Registered Rentals</div>
+                <div id="gaugeCenterSub" class="text-[10px] text-slate-400 mt-0.5">vs. <span class="font-medium text-emerald-600">18.8% Casual</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Weekly Rental Activity Line Chart (Directly Below the Gauge) -->
+          <div class="pt-2.5 border-t border-slate-100">
+            <!-- Controls & Legend -->
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-3 text-xs">
+                <span class="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                  <span class="w-2.5 h-2.5 rounded-full bg-brandBlue inline-block"></span>
+                  Registered
+                </span>
+                <span class="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                  <span class="w-2.5 h-2.5 rounded-full bg-[#6EE7B7] border border-emerald-400 inline-block"></span>
+                  Casual
+                </span>
+              </div>
+              <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[10px]">
+                <button id="wmBtn-vol" onclick="setWeeklyMixMetric('vol')" class="px-2 py-0.5 rounded-md font-semibold bg-white text-ink shadow-xs transition">Rides/d</button>
+                <button id="wmBtn-pct" onclick="setWeeklyMixMetric('pct')" class="px-2 py-0.5 rounded-md font-medium text-muted hover:text-ink transition">% Share</button>
+              </div>
+            </div>
+            
+            <!-- Taller Line Chart Canvas -->
+            <div class="relative h-[190px] w-full">
+              <canvas id="weeklyMixCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ROW 3: VISUAL 7-DAY × 24-HOUR HEATMAP BLOCK GRID (FULL WIDTH) -->
+      <section class="ref-card p-6 sm:p-7">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
+          <div>
+            <div class="flex items-center gap-2.5">
+              <h3 class="text-lg font-semibold text-ink">24-Hour × 7-Day Demand Heatmap</h3>
+              <span id="heatmapFilterBadge" class="neutral-pill">17,379 Hourly Logs (2011–2012)</span>
+            </div>
+          </div>
+
+          <!-- Heatmap Live Inspector Badge -->
+          <div id="heatmapInspector" class="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2.5 flex items-center gap-4 text-xs shrink-0">
+            <div>
+              <span class="text-muted block text-[10px] uppercase font-semibold">Selected Time Slot</span>
+              <strong id="hmSlotTitle" class="text-ink text-sm">Tue • 5:00 PM (17:00)</strong>
+            </div>
+            <div class="h-7 w-[1px] bg-slate-200"></div>
+            <div>
+              <span class="text-muted block text-[10px] uppercase font-semibold">Avg Demand</span>
+              <strong id="hmSlotVal" class="text-brandBlue text-sm">544.3 rides/hr</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Heatmap Grid Container -->
+        <div class="overflow-x-auto pb-2">
+          <div class="min-w-[780px]">
+            <!-- Hour Column Headers (12a to 11p) -->
+            <div class="grid grid-cols-[90px_repeat(24,minmax(0,1fr))] gap-1.5 mb-1.5 text-[10px] font-semibold text-muted text-center">
+              <div class="text-left pl-2">Day / Hour</div>
+              <div>12a</div><div>1a</div><div>2a</div><div>3a</div><div>4a</div><div>5a</div>
+              <div>6a</div><div>7a</div><div>8a</div><div>9a</div><div>10a</div><div>11a</div>
+              <div>12p</div><div>1p</div><div>2p</div><div>3p</div><div>4p</div><div>5p</div>
+              <div>6p</div><div>7p</div><div>8p</div><div>9p</div><div>10p</div><div>11p</div>
+            </div>
+
+            <!-- 7 Day Rows Injected by JS -->
+            <div id="heatmapRowsContainer" class="space-y-1.5"></div>
+          </div>
+        </div>
+
+        <!-- Heatmap Legend -->
+        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-muted">
+          <div class="flex items-center gap-2">
+            <span>Low (0–15/hr)</span>
+            <div class="flex items-center gap-1">
+              <span class="w-5 h-3 rounded bg-[#F8FAFC] border border-slate-200 inline-block"></span>
+              <span class="w-5 h-3 rounded bg-[#DBEAFE] inline-block"></span>
+              <span class="w-5 h-3 rounded bg-[#93C5FD] inline-block"></span>
+              <span class="w-5 h-3 rounded bg-[#3B82F6] inline-block"></span>
+              <span class="w-5 h-3 rounded bg-[#1D6EF5] inline-block"></span>
+              <span class="w-5 h-3 rounded bg-[#1E3A8A] inline-block"></span>
+            </div>
+            <span>High (500+/hr)</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- JAVASCRIPT ENGINE: DATA, DIAGONAL HATCH PATTERNS & GAUGE RENDERER   -->
+  <!-- =================================================================== -->
+  <!-- JAVASCRIPT ENGINE: DATA, CLICKABLE BARS, HEATMAP & REAL LOOKUP      -->
+  <!-- =================================================================== -->
+  <script>
+    // 1. VERIFIED DATASET METRICS (day.csv n=731, hour.csv n=17,379)
+    const DB = {"kpi":{"2011":{"all":{"t1":"2011 Total Rentals","v1":"1,243,103","p1":"Year 1","s1":"365 days logged:","v2":"3,405","d2":".8 /d","p2":"143.8/hr","s2":"2011 hourly mean:","v3":"995,851","p3":"80.1% Share","s3":"Registered (2,728/d)","v4":"247,252","p4":"19.9% Share","s4":"Casual (677.4/d)","regPct":80.1,"casAvg":"677.4 /day (19.9%)","regAvg":"2,728.4 /day (80.1%)","badge":"2011 (All Days)"},"working":{"t1":"2011 Working Days","v1":"856,264","p1":"68.9%","s1":"250 working days:","v2":"3,425","d2":".1 /d","p2":"394.8/hr","s2":"5:00 PM evening peak:","v3":"737,910","p3":"86.2% Share","s3":"Registered (2,952/d)","v4":"118,354","p4":"13.8% Share","s4":"Casual (473.4/d)","regPct":86.2,"casAvg":"473.4 /day (13.8%)","regAvg":"2,951.6 /day (86.2%)","badge":"2011 Working Days"},"weekend":{"t1":"2011 Wknd & Holidays","v1":"386,839","p1":"31.1%","s1":"115 weekend/hol days:","v2":"3,363","d2":".8 /d","p2":"286.4/hr","s2":"1:00 PM midday peak:","v3":"257,941","p3":"66.7% Share","s3":"Registered (2,243/d)","v4":"128,898","p4":"33.3% Share","s4":"Casual (1,121/d)","regPct":66.7,"casAvg":"1,120.9 /day (33.3%)","regAvg":"2,243.0 /day (66.7%)","badge":"2011 Weekends & Hol"}},"2012":{"all":{"t1":"2012 Total Rentals","v1":"2,049,576","p1":"↑ 64.9%","s1":"+806,473 vs 2011:","v2":"5,599","d2":".9 /d","p2":"↑ 64.4%","s2":"Daily avg vs 2011:","v3":"1,676,811","p3":"81.8% Share","s3":"Registered (4,582/d)","v4":"372,765","p4":"18.2% Share","s4":"Casual (1,019/d)","regPct":81.8,"casAvg":"1,018.5 /day (18.2%)","regAvg":"4,581.5 /day (81.8%)","badge":"2012 (All Days)"},"working":{"t1":"2012 Working Days","v1":"1,436,146","p1":"↑ 67.7%","s1":"250 working days:","v2":"5,744","d2":".6 /d","p2":"655.8/hr","s2":"5:00 PM evening peak:","v3":"1,251,215","p3":"87.1% Share","s3":"Registered (5,005/d)","v4":"184,931","p4":"12.9% Share","s4":"Casual (739.7/d)","regPct":87.1,"casAvg":"739.7 /day (12.9%)","regAvg":"5,004.9 /day (87.1%)","badge":"2012 Working Days"},"weekend":{"t1":"2012 Wknd & Holidays","v1":"613,430","p1":"↑ 58.6%","s1":"116 weekend/hol days:","v2":"5,288","d2":".2 /d","p2":"458.2/hr","s2":"1:00 PM midday peak:","v3":"425,596","p3":"69.4% Share","s3":"Registered (3,669/d)","v4":"187,834","p4":"30.6% Share","s4":"Casual (1,619/d)","regPct":69.4,"casAvg":"1,619.3 /day (30.6%)","regAvg":"3,668.9 /day (69.4%)","badge":"2012 Weekends & Hol"}},"all":{"all":{"t1":"Total Rentals","v1":"3,292,679","p1":"↑ 64.9%","s1":"From 2011 baseline:","v2":"4,504","d2":".3 /d","p2":"↑ 5.9%","s2":"Working vs. Weekend:","v3":"2,672,662","p3":"81.2% Share","s3":"Registered (3,656/d)","v4":"620,017","p4":"↑ 126.0%","s4":"Weekend surge (1,371/d)","regPct":81.2,"casAvg":"848.2 /day (18.8%)","regAvg":"3,656.2 /day (81.2%)","badge":"2011–2012 (All Days)"},"working":{"t1":"Working Day Rentals","v1":"2,292,410","p1":"69.6%","s1":"Of all 2-year volume:","v2":"4,584","d2":".8 /d","p2":"↑ 5.9%","s2":"Above weekend avg:","v3":"1,989,125","p3":"86.8% Share","s3":"Registered (3,978/d)","v4":"303,285","p4":"13.2% Share","s4":"Casual (606.6/d)","regPct":86.8,"casAvg":"606.6 /day (13.2%)","regAvg":"3,978.2 /day (86.8%)","badge":"Working Days (500d)"},"weekend":{"t1":"Weekend & Hol Rentals","v1":"1,000,269","p1":"30.4%","s1":"Across 231 days:","v2":"4,330","d2":".2 /d","p2":"372.7/hr","s2":"Midday 1:00 PM peak:","v3":"683,537","p3":"68.3% Share","s3":"Registered (2,959/d)","v4":"316,732","p4":"31.7% Share","s4":"Casual surges +126%!","regPct":68.3,"casAvg":"1,371.1 /day (31.7%)","regAvg":"2,959.0 /day (68.3%)","badge":"Weekends & Hol (231d)"}}},"monthly":{"labels":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],"fullNames":["January","February","March","April","May","June","July","August","September","October","November","December"],"data":{"2011":{"all":{"total":[1231.9,1722,2066,3162.3,4381.3,4783.7,4559.4,4409.4,4247.3,3984.2,3405.6,2816.9],"reg":[1132.8,1499,1652.2,2417.5,3379.7,3763.3,3383.5,3479,3362.4,3170.6,2885.8,2544.4],"cas":[99.1,222.9,413.7,744.9,1001.6,1020.4,1175.9,930.4,884.8,813.6,519.8,272.5],"tempC":[8.1,11.6,13.6,19.3,23.7,28.4,31.1,28.9,25.1,19.3,16.5,13.3]},"working":{"total":[1350.5,1768.5,2045.1,3140.8,4350.1,4703.1,4421,4614.3,4049.2,3961.1,3431.2,3026.4],"reg":[1280.8,1630.6,1765,2627.2,3651.2,3943.4,3639.7,3815.3,3508.1,3447.4,3110.3,2827.3],"cas":[69.7,137.8,280.1,513.6,698.9,759.7,781.3,799,541.1,513.6,320.9,199.1],"tempC":[8,11.3,13.3,20.1,23.5,28.6,31.1,29,25,20,17,14]},"weekend":{"total":[1016.4,1623.8,2126,3205.5,4446.9,5005.5,4811,3820.3,4709.3,4026.3,3354.4,2376.9],"reg":[863.6,1221.2,1328,1998.1,2809.5,3268.3,2917.7,2512.1,3022.4,2667.3,2436.8,1950.2],"cas":[152.7,402.6,798,1207.4,1637.4,1737.3,1893.3,1308.1,1686.9,1359,917.6,426.7],"tempC":[8.3,12.2,14.3,17.7,24,28,31.2,28.8,25.5,18,15.6,12]}},"2012":{"all":{"total":[3120.8,3556.4,5318.5,5807.5,6318.2,6761,6568,6919.5,7285.8,6414.2,5088.8,3990.7],"reg":[2831.5,3255.7,4298.6,4525.6,4891.3,5317.9,5222.6,5526,5826.5,5300.1,4388.5,3563.5],"cas":[289.3,300.7,1019.9,1281.9,1426.9,1443.1,1345.3,1393.5,1459.3,1114.1,700.3,427.3],"tempC":[11.3,12.9,18.4,19.2,25.1,27.7,30.8,29.2,25.4,20.5,13.8,13.2]},"working":{"total":[3345.3,3870.2,5455.7,5851,6112.9,6583.7,6810,7202.2,7294.4,6405.2,5266.9,4427.2],"reg":[3148.3,3651.8,4678.5,4962.1,5203.7,5592.6,5733.8,6012.2,6356.2,5635.2,4803.4,4080.8],"cas":[197,218.3,777.2,888.9,909.1,991.1,1076.2,1190,938.2,770,463.6,346.4],"tempC":[11.7,13.9,19,18.7,24.8,27.7,30.9,29.4,25.3,21,13.5,13.5]},"weekend":{"total":[2712.5,2859.3,4983.2,5720.4,6820.2,7174.8,6059.7,6106.6,7270.9,6436.2,4732.6,3197.2],"reg":[2255.3,2375.6,3369.9,3652.6,4127.6,4676.9,4149.3,4128.1,4911.5,4481,3558.8,2622.8],"cas":[457.2,483.8,1613.3,2067.8,2692.7,2497.9,1910.4,1978.5,2359.4,1955.2,1173.8,574.4],"tempC":[10.6,10.7,17,20.2,25.9,27.7,30.7,28.6,25.6,19.2,14.3,12.7]}},"all":{"all":{"total":[2176.3,2655.3,3692.3,4484.9,5349.8,5772.4,5563.7,5664.4,5766.5,5199.2,4247.2,3403.8],"reg":[1982.1,2392.8,2975.4,3471.5,4135.5,4540.6,4303.1,4502.5,4594.5,4235.4,3637.1,3053.9],"cas":[194.2,262.5,716.8,1013.4,1214.3,1231.8,1260.6,1161.9,1172,963.9,610,349.9],"tempC":[9.7,12.3,16,19.3,24.4,28,31,29.1,25.3,19.9,15.1,13.3]},"working":{"total":[2347.9,2846.3,3712.5,4495.9,5252,5621.5,5644.6,5908.2,5590.7,5241.4,4349,3709.7],"reg":[2214.6,2667.1,3189.4,3794.6,4445.5,4748.8,4712.3,4913.8,4861,4593.4,3956.8,3438.8],"cas":[133.3,179.1,523.1,701.3,806.4,872.7,932.4,994.5,729.7,648,392.2,270.9],"tempC":[9.8,12.6,16.1,19.4,24.2,28.1,31,29.2,25.1,20.5,15.2,13.7]},"weekend":{"total":[1864.4,2241.6,3638.6,4462.9,5571.1,6153.9,5405.6,4963.4,6118.2,5110.8,4043.5,2806.6],"reg":[1559.5,1798.4,2409,2825.3,3433.8,4014,3504.2,3320.1,4061.4,3483.4,2997.8,2302.5],"cas":[305,443.2,1229.6,1637.6,2137.3,2139.9,1901.4,1643.3,2056.8,1627.3,1045.7,504],"tempC":[9.4,11.5,15.8,18.9,24.9,27.9,30.9,28.7,25.6,18.6,15,12.4]}}}},"seasonal":{"labels":["1: Dec–Mar (Winter)","2: Mar–Jun (Spring)","3: Jun–Sep (Summer)","4: Sep–Dec (Autumn)"],"data":{"2011":{"all":{"total":[1666.7,3775.2,4464.4,3664.5],"reg":[1428.6,2932.1,3448.9,3071.1],"cas":[238.1,843.1,1015.4,593.4],"tempC":[11.2,21.9,28.7,17.5]},"working":{"total":[1763.7,3704.2,4450.1,3661.2],"reg":[1603,3118.7,3713.8,3283.6],"cas":[160.6,585.4,736.3,377.6],"tempC":[11,22,28.7,18.1]},"weekend":{"total":[1472.7,3937.5,4497.9,3671.3],"reg":[1079.8,2505.5,2824.5,2631.3],"cas":[392.9,1432,1673.4,1040],"tempC":[11.6,21.6,28.9,16.3]}},"2012":{"all":{"total":[3531.3,6209.5,6824.2,5791.9],"reg":[3100.6,4840.4,5434.4,4927],"cas":[430.7,1369.1,1389.8,864.8],"tempC":[13.2,22.7,29.2,17.2]},"working":{"total":[3797.4,6149.2,7005.6,5891.6],"reg":[3487.7,5206,5926.4,5304.2],"cas":[309.7,943.2,1079.2,587.4],"tempC":[13.9,22.6,29.2,17.4]},"weekend":{"total":[3016.2,6347.4,6417.8,5574.5],"reg":[2351.3,4004.6,4331.9,4105.4],"cas":[664.9,2342.7,2085.9,1469.1],"tempC":[11.8,23.2,29.1,16.7]}},"all":{"all":{"total":[2604.1,4992.3,5644.3,4728.2],"reg":[2269.2,3886.2,4441.7,3999.1],"cas":[334.9,1106.1,1202.6,729.1],"tempC":[12.2,22.3,29,17.3]},"working":{"total":[2780.5,4926.7,5718.1,4785.6],"reg":[2545.4,4162.4,4811.7,4302.2],"cas":[235.2,764.3,906.5,483.4],"tempC":[12.5,22.3,29,17.7]},"weekend":{"total":[2257.1,5142.4,5474.7,4606.2],"reg":[1726,3255.1,3591.4,3355.4],"cas":[531.1,1887.4,1883.2,1250.8],"tempC":[11.7,22.4,29,16.5]}}}},"weather":{"labels":["<10°C (Cold)","10–15°C","15–20°C","20–25°C","25–30°C (Peak)",">30°C (Hot)"],"data":{"2011":{"all":{"total":[1425.6,2362.2,3095.2,4138.1,4635.2,4319.1],"reg":[1320.3,1990.5,2536,3262.1,3561.4,3391.3],"cas":[105.3,371.7,559.1,875.9,1073.9,927.8]},"working":{"total":[1476.9,2386.3,3163.1,3903.3,4613.1,4318.5],"reg":[1400.4,2167.2,2807.9,3312.4,3858.1,3596.3],"cas":[76.6,219,355.2,590.9,754.9,722.1]},"weekend":{"total":[1311.2,2325.7,2947,4811.2,4683.7,4320.8],"reg":[1141.7,1722.4,1942.9,3118.1,2912.9,2776.1],"cas":[169.5,603.3,1004.1,1693.1,1770.8,1544.7]}},"2012":{"all":{"total":[2266.1,4012,5321,6736.6,6843.2,6500.9],"reg":[2101.6,3580.3,4377,5340.3,5426.7,5164.7],"cas":[164.5,431.7,944,1396.3,1416.5,1336.1]},"working":{"total":[2428.4,4343.1,5335.7,6594.3,6913.9,6714.5],"reg":[2283,4043.1,4695.2,5644.5,5877.9,5638.4],"cas":[145.4,300,640.4,949.9,1036,1076.1]},"weekend":{"total":[2011.1,3371.9,5290.5,7082.2,6676.4,6015.3],"reg":[1816.6,2685.7,3711.6,4601.7,4361.9,4088.2],"cas":[194.6,686.2,1578.8,2480.6,2314.5,1927.1]}},"all":{"all":{"total":[1677.8,3264,4192,5577.3,5726.2,5410],"reg":[1554.7,2859.5,3443.2,4413.1,4483.1,4278],"cas":[123.1,404.5,748.8,1164.2,1243.2,1132]},"working":{"total":[1738.6,3499,4226.3,5363.3,5763.5,5470.4],"reg":[1643.1,3233.9,3731.5,4577.6,4868,4578.1],"cas":[95.5,265.1,494.8,785.7,895.5,892.3]},"weekend":{"total":[1556.2,2857.7,4118.7,6136,5641.7,5252.8],"reg":[1377.9,2212.3,2827.3,3983.5,3609.5,3497.8],"cas":[178.3,645.4,1291.5,2152.5,2032.2,1755]}}}},"hourly":{"labels":["12a","1a","2a","3a","4a","5a","6a","7a","8a","9a","10a","11a","12p","1p","2p","3p","4p","5p","6p","7p","8p","9p","10p","11p"],"data":{"2011":{"all":[43,26.6,18.9,10.1,5.4,14.6,57.6,156.8,263,163.9,130.9,155.9,190.1,190.5,182.6,188.4,234.6,349.7,322.3,236.4,173.1,134.6,103.8,69.2],"working":[29.3,13.7,7.5,4.4,4.8,17.8,77.5,214.7,349.5,180.6,101.4,117.7,148.2,146.5,137.4,146.7,215,394.9,367.5,259,187.9,143.6,108,68.6],"weekend":[72.8,54.2,43.1,21.6,6.6,7.2,14,32.1,76.4,127.7,194.4,238.3,280.7,285.8,280.7,278.9,277.1,251.3,223.6,186.9,140.7,115,94.6,70.5]},"2012":{"all":[64.6,40.1,26.7,13.3,7.3,25,94.3,267.1,454.8,274.6,216.3,260.2,316.5,316.7,299.1,313.9,389.4,573.2,528.2,386.3,278.7,209.8,158.7,106.4],"working":[44.2,19.4,9.8,5.5,6,32,127.5,366.5,604.5,302.4,169.3,198.7,253.6,250.4,229.8,256,371.5,656.2,617,437.8,311.6,229,168.8,108.8],"weekend":[108.5,84.5,63.1,29.9,9.9,10.1,23.4,54.6,134.6,215.2,316.9,391.7,451,458.9,447.9,438.1,427.7,395.1,337.5,275.7,208.2,168.6,137.1,101.1]},"all":{"all":[53.9,33.4,22.9,11.7,6.4,19.9,76,212.1,359,219.3,173.7,208.1,253.3,253.7,240.9,251.2,312,461.5,425.5,311.5,226,172.3,131.3,87.8],"working":[36.8,16.6,8.7,4.9,5.4,24.9,102.5,290.6,477,241.5,135.4,158.2,200.8,198.4,183.6,201.3,293.1,525.3,492.2,348.4,249.7,186.3,138.4,88.7],"weekend":[90.8,69.5,53.2,25.8,8.3,8.7,18.7,43.4,105.7,171.6,255.9,315.3,366.3,372.7,364.6,358.8,352.7,323.5,281.1,231.7,174.7,142.1,116.1,85.9]}}},"weeklyMix":{"2011":{"reg":[2858.9,3006.7,2855.9,2925.2,2933.7,2267.8,2259.1],"cas":[606.9,461.3,397.3,431.5,566.4,1123.5,1146.2],"regPct":[82.5,86.7,87.8,87.1,83.8,66.9,66.3],"casPct":[17.5,13.3,12.2,12.9,16.2,33.1,33.7],"regPeak":"Tue • 3,007 /d (87%)","casPeak":"Sun • 1,146 /d (34%)"},"2012":{"reg":[4453.9,4902.2,5138.8,5227.4,4942.3,3918.4,3510.1],"cas":[740.1,651,705,750.4,938.2,1813.6,1526.8],"regPct":[85.8,88.3,87.9,87.4,84,68.4,69.7],"casPct":[14.2,11.7,12.1,12.6,16,31.6,30.3],"regPeak":"Thu • 5,227 /d (87%)","casPeak":"Sat • 1,814 /d (32%)"},"labels":["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],"all":{"reg":[3664,3954.5,3997.4,4076.3,3938,3085.3,2890.5],"cas":[674.1,556.2,551.1,591,752.3,1465.3,1338.3],"regPct":[84.5,87.7,87.9,87.3,84,67.8,68.4],"casPct":[15.5,12.3,12.1,12.7,16,32.2,31.6],"regPeak":"Thu • 4,076 /d (87%)","casPeak":"Sat • 1,465 /d (32%)"}},"heatmap":{"2011":{"totalLogs":8645,"rows":[{"day":"Mon","vals":[32.5,18,10.2,5.3,5.1,15.6,67.5,190.4,306,167.4,112,131.2,164.8,162.8,151.7,156.3,223.2,402.1,382.1,273.8,194.2,144.9,97.8,52.8]},{"day":"Tue","vals":[23.3,11.2,6.5,4,4.8,18.5,83.9,238.9,358.8,177.3,100,107.1,134.6,136.3,129.9,142.9,213.4,414.9,397.1,271.1,198,153.3,107.6,58.5]},{"day":"Wed","vals":[25.1,10.8,5.4,3.8,4.2,17,78.6,211.2,348.4,174.3,93.6,108.6,137.4,131,121.3,123.1,194.3,379.8,359,261.8,182.6,138.4,103.4,62.5]},{"day":"Thu","vals":[30.2,14.2,7.3,4.5,4.5,18.4,79.5,216.7,351.5,181.1,98.5,117.6,147.3,143.5,133.5,139.4,201.8,373.8,351.2,250.8,194.3,145.6,111.9,72.7]},{"day":"Fri","vals":[40.7,19,11.3,5.2,5.4,17.7,67,186.6,339.9,194.6,115.9,139.7,174.5,177.8,170,185.5,244.8,371.8,315.6,221.1,159.1,130.6,115.1,92.2]},{"day":"Sat","vals":[72.5,52.2,41,19.2,6.3,6.9,15.6,33.5,80.8,131.3,189.1,232.5,272.9,274.4,276.2,283.9,277.1,252.3,230.5,189.5,146.1,123.8,110.2,90.7]},{"day":"Sun","vals":[76.1,59.5,49.1,26.1,7.3,7.3,11.1,25.6,62.6,122.4,204.8,251.6,296.7,305.2,293.1,285.2,286.6,254.9,221.2,187,137.2,106.1,80.7,54.8]}]},"2012":{"totalLogs":8734,"rows":[{"day":"Mon","vals":[35.5,16.6,10.4,5,6.5,27.7,104.2,306.7,518.4,269.5,166.1,196.2,250.2,248.4,233.7,248.5,345.7,602.7,580.6,415.3,289.9,204.2,133.7,78.1]},{"day":"Tue","vals":[31.9,13.8,7.1,4.3,5.5,30.3,129.1,360.5,584.7,295.6,158.4,185.6,231.9,229.7,206.8,230.9,360,673.6,638,436.7,308.3,219.2,157,93.8]},{"day":"Wed","vals":[44,19.8,10.1,5.9,5.7,34.5,137,396.8,628.3,302.8,170.2,195.8,250.4,240.7,219.8,239.5,351.6,646.5,626.5,451.4,329.3,249.9,183.2,104.6]},{"day":"Thu","vals":[48.2,20.2,10.9,5.6,6,33.3,134.8,391.1,623,299.5,166,199.3,250.8,248.3,220.8,252.4,370.8,680.8,653,466.2,343.6,250.1,182.6,120.8]},{"day":"Fri","vals":[64.2,30.5,14.2,7.9,6.6,30.2,113,322,584.7,323.4,199.6,236.5,300.8,305.2,288.7,319.4,417.2,613.1,526.4,383.1,267.6,209.2,179.1,138.2]},{"day":"Sat","vals":[116.5,83.7,60.1,26.6,9,9.7,26.5,58.7,148.8,243.3,339.8,426.6,479.8,498.5,488.5,482.8,456.9,418.1,353.6,290.3,215.6,188.2,169.2,141]},{"day":"Sun","vals":[111.2,94.7,73.7,36,11.3,9.9,17.7,40.4,104.7,190.1,311.4,377.9,447.8,443.3,432.8,421.4,422.9,381.4,323.1,263.2,198.2,148.8,107.3,68.8]}]},"all":{"totalLogs":17379,"rows":[{"day":"Mon","vals":[34,17.3,10.3,5.1,5.8,21.7,85.9,248.5,412.2,218.4,139,163.7,207.5,205.6,192.7,202.4,284.5,502.4,481.3,344.6,242.1,174.5,115.8,65.4]},{"day":"Tue","vals":[27.6,12.5,6.8,4.2,5.1,24.5,106.5,299.7,471.8,236.5,129.2,146.3,182.8,183,168.4,186.9,286.7,544.3,517.6,353.9,253.2,186.2,132.3,76.2]},{"day":"Wed","vals":[34.6,15.3,7.8,4.9,5,25.8,107.8,304,488.3,238.5,131.9,152.2,193.9,185.8,170.5,181.3,273,513.1,494,357.5,256.7,194.7,143.7,83.7]},{"day":"Thu","vals":[39.3,17.2,9.2,5.1,5.3,25.9,107.4,304.7,488.6,240.9,132.6,158.8,199.5,196.4,177.6,196.5,286.3,527.3,502.1,358.5,268.9,197.9,147.2,96.8]},{"day":"Fri","vals":[52.4,24.7,12.7,6.6,6.1,23.9,90,254.3,462.3,259,157.7,188.1,237.6,241.5,229.4,252.5,331,492.4,421,302.1,213.3,169.9,147.1,115.2]},{"day":"Sat","vals":[94.3,67.8,50.5,22.9,7.7,8.3,21,46,114.5,186.8,263.7,328.6,375.4,385.4,381.3,382.4,366.1,334.4,292,239.9,180.9,156,139.7,115.9]},{"day":"Sun","vals":[94,77.4,61.6,31.1,9.4,8.7,14.5,33.1,83.9,156.5,258.6,315.4,373,374.9,363.6,353.9,355.4,318.8,272.6,225.5,168,127.6,94.1,61.9]}]}}};
+
+    // 2. STATE VARIABLES
+    let currentYear = 'all';
+    let currentDayType = 'all';
+    let heroMode = 'monthly';
+    let selectedBarIndex = {
+      monthly: 5,   // Default to June (index 5)
+      hourly: 17,   // Default to 5:00 PM (index 17)
+      seasonal: 2,  // Default to Season 3 Summer (index 2)
+      weather: 4    // Default to 25-30°C (index 4)
+    };
+    let heroChart = null;
+    let weeklyMixMetric = 'vol';
+    let weeklyMixChart = null;
+
+    // 3. CREATE DIAGONAL HATCH PATTERN & BLUE PEAK GRADIENT
+    function createDiagonalHatchPattern(ctx) {
+      const pCanvas = document.createElement('canvas');
+      pCanvas.width = 12;
+      pCanvas.height = 12;
+      const pCtx = pCanvas.getContext('2d');
+
+      pCtx.fillStyle = '#F1F5F9';
+      pCtx.fillRect(0, 0, 12, 12);
+
+      pCtx.strokeStyle = '#E2E8F0';
+      pCtx.lineWidth = 1.5;
+      pCtx.beginPath();
+      pCtx.moveTo(0, 12);
+      pCtx.lineTo(12, 0);
+      pCtx.stroke();
+
+      pCtx.beginPath();
+      pCtx.moveTo(-3, 3);
+      pCtx.lineTo(3, -3);
+      pCtx.stroke();
+
+      pCtx.beginPath();
+      pCtx.moveTo(9, 15);
+      pCtx.lineTo(15, 9);
+      pCtx.stroke();
+
+      return ctx.createPattern(pCanvas, 'repeat');
+    }
+
+    function createBluePeakGradient(ctx) {
+      // Linear gradient that fades from vibrant brand blue downwards to soft light blue/faded white (matches reference)
+      const grad = ctx.createLinearGradient(0, 25, 0, 240);
+      grad.addColorStop(0, '#1878FA');
+      grad.addColorStop(0.35, '#4A8FFA');
+      grad.addColorStop(0.7, '#A5C9FE');
+      grad.addColorStop(1, '#F3F8FE');
+      return grad;
+    }
+
+    // Chart.js Plugin: Floating Value Pill Above Selected Bar
+    const selectedBarCalloutPlugin = {
+      id: 'selectedBarCallout',
+      afterDraw(chart) {
+        const selIdx = selectedBarIndex[heroMode];
+        if (selIdx === undefined || selIdx === null) return;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data || !meta.data[selIdx]) return;
+
+        const bar = meta.data[selIdx];
+        const val = chart.data.datasets[0].data[selIdx];
+        if (val === undefined || val === null) return;
+
+        const { ctx } = chart;
+        const text = Math.round(val).toLocaleString() + (heroMode === 'hourly' ? '/h' : '/d');
+
+        ctx.save();
+        ctx.font = '600 11px Inter, sans-serif';
+        const textWidth = ctx.measureText(text).width;
+        const padX = 8;
+        const padY = 4;
+        const boxW = textWidth + padX * 2;
+        const boxH = 18;
+        const boxX = bar.x - boxW / 2;
+        const boxY = bar.y - boxH - 8;
+
+        // Shadow
+        ctx.shadowColor = 'rgba(29, 110, 245, 0.25)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 2;
+
+        // Pill Background
+        ctx.fillStyle = '#1D6EF5';
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(boxX, boxY, boxW, boxH, 9);
+        } else {
+          ctx.rect(boxX, boxY, boxW, boxH);
+        }
+        ctx.fill();
+
+        // Arrow
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.moveTo(bar.x - 4, boxY + boxH);
+        ctx.lineTo(bar.x + 4, boxY + boxH);
+        ctx.lineTo(bar.x, boxY + boxH + 4);
+        ctx.closePath();
+        ctx.fillStyle = '#1D6EF5';
+        ctx.fill();
+
+        // Text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, bar.x, boxY + boxH / 2);
+        ctx.restore();
+      }
+    };
+
+    // 4. HERO SECTION INTERACTIVE CONTROLS
+    function setHeroMode(mode) {
+      heroMode = mode;
+      ['monthly', 'hourly', 'seasonal', 'weather'].forEach(m => {
+        const btn = document.getElementById('hbtn-' + m);
+        if (!btn) return;
+        if (m === mode) {
+          btn.className = 'pill-btn pill-btn-active';
+          btn.textContent = '• ' + (m === 'monthly' ? 'Monthly' : m === 'hourly' ? 'Hourly (0–23h)' : m === 'seasonal' ? 'Seasons' : 'Weather (°C)');
+        } else {
+          btn.className = 'pill-btn';
+          btn.textContent = m === 'monthly' ? 'Monthly' : m === 'hourly' ? 'Hourly (0–23h)' : m === 'seasonal' ? 'Seasons' : 'Weather (°C)';
+        }
+      });
+      renderHeroChart();
+    }
+
+    function selectHeroBar(idx) {
+      selectedBarIndex[heroMode] = idx;
+      renderHeroChart();
+    }
+
+    function renderBarSelectorPills(labels, activeIdx) {
+      const strip = document.getElementById('barSelectorStrip');
+      if (!strip) return;
+      strip.innerHTML = '';
+      labels.forEach((lbl, idx) => {
+        const btn = document.createElement('button');
+        const isSel = idx === activeIdx;
+        btn.className = isSel
+          ? 'px-2.5 py-1 rounded-full text-[11px] font-semibold bg-brandBlue text-white shadow-sm transition'
+          : 'px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition';
+        btn.textContent = lbl.split(' ')[0];
+        btn.onclick = () => selectHeroBar(idx);
+        strip.appendChild(btn);
+      });
+    }
+
+    function renderHeroChart() {
+      const canvas = document.getElementById('heroCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (heroChart) heroChart.destroy();
+
+      const hatchPattern = createDiagonalHatchPattern(ctx);
+      const blueGrad = createBluePeakGradient(ctx);
+      const selIdx = selectedBarIndex[heroMode];
+
+      if (heroMode === 'monthly') {
+        const mData = DB.monthly.data[currentYear][currentDayType];
+        const val = mData.total[selIdx];
+        const whole = Math.floor(val).toLocaleString();
+        const dec = '.' + (val % 1).toFixed(1).split('.')[1] + ' /day';
+        const mName = DB.monthly.fullNames[selIdx];
+        const tStr = mData.tempC[selIdx] ? `${mData.tempC[selIdx]}°C` : 'N/A';
+
+        document.getElementById('heroChartTitle').textContent = 'Monthly Demand Insights (Jan–Dec)';
+        document.getElementById('heroBigNumber').textContent = whole;
+        document.getElementById('heroBigSuffix').textContent = dec;
+        document.getElementById('heroDeltaPill').textContent = `Selected: ${mName}`;
+        document.getElementById('leg1Text').textContent = `${DB.monthly.labels[selIdx]} (${Math.round(val).toLocaleString()}/d)`;
+        document.getElementById('leg2Text').textContent = `Registered (${Math.round(mData.reg[selIdx]).toLocaleString()}/d)`;
+        document.getElementById('leg3Text').textContent = `Casual (${Math.round(mData.cas[selIdx]).toLocaleString()}/d)`;
+        document.getElementById('heroTakeaway').innerHTML = `<strong>${mName} Breakdown:</strong> ${mData.reg[selIdx].toLocaleString()}/day Registered rentals + ${mData.cas[selIdx].toLocaleString()}/day Casual rentals.`;
+        document.getElementById('heroSubRight').textContent = `Avg Temp in ${DB.monthly.labels[selIdx]}: ${tStr}`;
+
+        renderBarSelectorPills(DB.monthly.labels, selIdx);
+
+        const bgColors = mData.total.map((v, i) => i === selIdx ? blueGrad : hatchPattern);
+
+        heroChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: DB.monthly.labels,
+            datasets: [{
+              label: 'Total Daily Mean',
+              data: mData.total,
+              backgroundColor: bgColors,
+              borderRadius: 999,
+              borderSkipped: false,
+              barPercentage: 0.58,
+              categoryPercentage: 0.78
+            }]
+          },
+          plugins: [selectedBarCalloutPlugin],
+          options: getCleanChartOptions((idx) => {
+            const t = mData.tempC[idx] ? `${mData.tempC[idx]}°C` : 'N/A';
+            return `Registered: ${mData.reg[idx].toLocaleString()}/d  |  Casual: ${mData.cas[idx].toLocaleString()}/d  |  Temp: ${t}`;
+          })
+        });
+
+      } else if (heroMode === 'hourly') {
+        const series = DB.hourly.data[currentYear][currentDayType];
+        const val = series[selIdx];
+        const whole = Math.floor(val).toLocaleString();
+        const dec = '.' + (val % 1).toFixed(1).split('.')[1] + ' /hr';
+
+        const wAvg = DB.hourly.data[currentYear]['working'][selIdx];
+        const weAvg = DB.hourly.data[currentYear]['weekend'][selIdx];
+
+        document.getElementById('heroChartTitle').textContent = '24-Hour Demand Curve';
+        document.getElementById('heroBigNumber').textContent = whole;
+        document.getElementById('heroBigSuffix').textContent = dec;
+        document.getElementById('heroDeltaPill').textContent = `Selected Hour: ${DB.hourly.labels[selIdx]}`;
+        document.getElementById('leg1Text').textContent = `Selected (${DB.hourly.labels[selIdx]})`;
+        document.getElementById('leg2Text').textContent = `Workday: ${wAvg}/hr`;
+        document.getElementById('leg3Text').textContent = `Weekend: ${weAvg}/hr`;
+        document.getElementById('heroTakeaway').innerHTML = `<strong>Hour ${DB.hourly.labels[selIdx]} Comparison:</strong> Averages <strong>${wAvg}/hr</strong> on Working Days vs. <strong>${weAvg}/hr</strong> on Weekends/Holidays.`;
+        document.getElementById('heroSubRight').textContent = 'Min: 4a (6.4/hr) • Max: 5p (461.5/hr)';
+
+        renderBarSelectorPills(DB.hourly.labels, selIdx);
+
+        const bgColors = series.map((v, i) => i === selIdx ? blueGrad : hatchPattern);
+
+        heroChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: DB.hourly.labels,
+            datasets: [{
+              label: 'Hourly Mean Rentals',
+              data: series,
+              backgroundColor: bgColors,
+              borderRadius: 999,
+              borderSkipped: false,
+              barPercentage: 0.68,
+              categoryPercentage: 0.85
+            }]
+          },
+          plugins: [selectedBarCalloutPlugin],
+          options: getCleanChartOptions((idx) => {
+            return `Working Day: ${DB.hourly.data[currentYear]['working'][idx]}/hr  |  Weekend/Hol: ${DB.hourly.data[currentYear]['weekend'][idx]}/hr`;
+          })
+        });
+
+      } else if (heroMode === 'seasonal') {
+        const sData = DB.seasonal.data[currentYear][currentDayType];
+        const val = sData.total[selIdx];
+        const whole = Math.floor(val).toLocaleString();
+        const dec = '.' + (val % 1).toFixed(1).split('.')[1] + ' /day';
+        const tStr = sData.tempC[selIdx] ? `${sData.tempC[selIdx]}°C` : 'N/A';
+
+        document.getElementById('heroChartTitle').textContent = 'Seasonal Demand Comparison';
+        document.getElementById('heroBigNumber').textContent = whole;
+        document.getElementById('heroBigSuffix').textContent = dec;
+        document.getElementById('heroDeltaPill').textContent = DB.seasonal.labels[selIdx];
+        document.getElementById('leg1Text').textContent = 'Selected Season';
+        document.getElementById('leg2Text').textContent = `Registered (${Math.round(sData.reg[selIdx]).toLocaleString()}/d)`;
+        document.getElementById('leg3Text').textContent = `Casual (${Math.round(sData.cas[selIdx]).toLocaleString()}/d)`;
+        document.getElementById('heroTakeaway').innerHTML = `<strong>${DB.seasonal.labels[selIdx]}:</strong> ${sData.reg[selIdx].toLocaleString()}/d Registered + ${sData.cas[selIdx].toLocaleString()}/d Casual.`;
+        document.getElementById('heroSubRight').textContent = `Avg Temp: ${tStr}`;
+
+        renderBarSelectorPills(DB.seasonal.labels, selIdx);
+
+        const bgColors = sData.total.map((v, i) => i === selIdx ? blueGrad : hatchPattern);
+
+        heroChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: DB.seasonal.labels,
+            datasets: [{
+              label: 'Daily Mean Rentals',
+              data: sData.total,
+              backgroundColor: bgColors,
+              borderRadius: 999,
+              borderSkipped: false,
+              barPercentage: 0.42
+            }]
+          },
+          plugins: [selectedBarCalloutPlugin],
+          options: getCleanChartOptions((idx) => {
+            return `Registered: ${sData.reg[idx].toLocaleString()}/d  |  Casual: ${sData.cas[idx].toLocaleString()}/d`;
+          })
+        });
+
+      } else if (heroMode === 'weather') {
+        const labels = DB.weather.labels;
+        const wData = DB.weather.data[currentYear][currentDayType];
+        const val = wData.total[selIdx];
+        const whole = Math.floor(val).toLocaleString();
+        const dec = '.' + (val % 1).toFixed(1).split('.')[1] + ' /day';
+
+        document.getElementById('heroChartTitle').textContent = 'Demand by Temperature (°C)';
+        document.getElementById('heroBigNumber').textContent = whole;
+        document.getElementById('heroBigSuffix').textContent = dec;
+        document.getElementById('heroDeltaPill').textContent = `Band: ${labels[selIdx]}`;
+        document.getElementById('leg1Text').textContent = 'Selected Temp Band';
+        document.getElementById('leg2Text').textContent = `Registered (${Math.round(wData.reg[selIdx]).toLocaleString()}/d)`;
+        document.getElementById('leg3Text').textContent = `Casual (${Math.round(wData.cas[selIdx]).toLocaleString()}/d)`;
+        document.getElementById('heroTakeaway').innerHTML = `<strong>${labels[selIdx]} Band:</strong> Averages ${wData.reg[selIdx].toLocaleString()}/day Registered + ${wData.cas[selIdx].toLocaleString()}/day Casual rentals.`;
+        document.getElementById('heroSubRight').textContent = 'Sweet Spot: 25–30°C (5,726/d)';
+
+        renderBarSelectorPills(labels, selIdx);
+
+        const bgColors = wData.total.map((v, i) => i === selIdx ? blueGrad : hatchPattern);
+
+        heroChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Daily Mean Rentals',
+              data: wData.total,
+              backgroundColor: bgColors,
+              borderRadius: 999,
+              borderSkipped: false,
+              barPercentage: 0.48
+            }]
+          },
+          plugins: [selectedBarCalloutPlugin],
+          options: getCleanChartOptions((idx) => {
+            return `Registered: ${wData.reg[idx].toLocaleString()}/d  |  Casual: ${wData.cas[idx].toLocaleString()}/d`;
+          })
+        });
+      }
+    }
+
+    function getCleanChartOptions(extraTooltipFn) {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 38, bottom: 4 } },
+        interaction: { mode: 'index', intersect: false },
+        onClick: (event, elements) => {
+          if (elements && elements.length > 0) {
+            selectHeroBar(elements[0].index);
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            enabled: false
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            border: { display: false },
+            ticks: { color: '#64748B', font: { size: 11, weight: '500' } }
+          },
+          y: {
+            grid: { color: 'rgba(241, 245, 249, 0.9)' },
+            border: { display: false },
+            ticks: {
+              color: '#94A3B8',
+              font: { size: 10 },
+              callback: (v) => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v
+            }
+          }
+        }
+      };
+    }
+
+    // 5. RENDER 7-DAY × 24-HOUR VISUAL HEATMAP BLOCK GRID
+    function renderHeatmapGrid() {
+      const container = document.getElementById('heatmapRowsContainer');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const yrKey = DB.heatmap[currentYear] ? currentYear : 'all';
+      const hmData = DB.heatmap[yrKey];
+
+      const badgeEl = document.getElementById('heatmapFilterBadge');
+      if (badgeEl) {
+        let yrLabel = currentYear === 'all' ? '2011–2012' : currentYear;
+        badgeEl.textContent = `${hmData.totalLogs.toLocaleString()} Hourly Logs (${yrLabel})`;
+      }
+
+      const hourNames = [
+        '12:00 AM','1:00 AM','2:00 AM','3:00 AM','4:00 AM','5:00 AM',
+        '6:00 AM','7:00 AM','8:00 AM','9:00 AM','10:00 AM','11:00 AM',
+        '12:00 PM','1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM',
+        '6:00 PM','7:00 PM','8:00 PM','9:00 PM','10:00 PM','11:00 PM'
+      ];
+
+      hmData.rows.forEach((rowObj) => {
+        const isWeekend = rowObj.day === 'Sat' || rowObj.day === 'Sun';
+        const rowEl = document.createElement('div');
+        rowEl.className = 'grid grid-cols-[90px_repeat(24,minmax(0,1fr))] gap-1.5 items-center';
+
+        const labelEl = document.createElement('div');
+        labelEl.className = `text-xs font-semibold pl-2 flex items-center gap-1.5 ${isWeekend ? 'text-brandBlue' : 'text-ink'}`;
+        labelEl.innerHTML = `<span>${rowObj.day}</span><span class="text-[10px] font-normal text-muted">${isWeekend ? 'Wknd' : 'Work'}</span>`;
+        rowEl.appendChild(labelEl);
+
+        rowObj.vals.forEach((v, hrIdx) => {
+          const cell = document.createElement('button');
+          const { bg, text } = getHeatmapColor(v);
+          cell.style.backgroundColor = bg;
+          cell.style.color = text;
+          cell.className = 'hm-cell h-8 rounded-lg text-[10px] font-semibold flex items-center justify-center transition transform hover:scale-110 hover:z-10 hover:ring-2 hover:ring-ink shadow-[inset_0_0_0_1px_rgba(15,23,42,0.04)] cursor-pointer';
+          cell.title = `${rowObj.day} ${hourNames[hrIdx]}: ${v.toFixed(1)} rides/hr`;
+
+          const valSpan = document.createElement('span');
+          valSpan.className = 'hm-val font-semibold';
+          valSpan.textContent = Math.round(v);
+          cell.appendChild(valSpan);
+
+          const inspectFn = () => {
+            document.getElementById('hmSlotTitle').textContent = `${rowObj.day} • ${hourNames[hrIdx]}`;
+            document.getElementById('hmSlotVal').textContent = `${v.toFixed(1)} rides/hr`;
+          };
+
+          cell.onmouseenter = inspectFn;
+          cell.onclick = inspectFn;
+          rowEl.appendChild(cell);
+        });
+
+        container.appendChild(rowEl);
+      });
+    }
+
+    function getHeatmapColor(val) {
+      if (val < 15)  return { bg: '#F8FAFC', text: '#94A3B8' };
+      if (val < 50)  return { bg: '#EFF6FF', text: '#64748B' };
+      if (val < 120) return { bg: '#DBEAFE', text: '#1E40AF' };
+      if (val < 220) return { bg: '#BFDBFE', text: '#1E3A8A' };
+      if (val < 330) return { bg: '#60A5FA', text: '#FFFFFF' };
+      if (val < 440) return { bg: '#1D6EF5', text: '#FFFFFF' };
+      return { bg: '#1E3A8A', text: '#FFFFFF' };
+    }
+
+    // 6. CUSTOM SVG SEGMENTED SEMICIRCULAR GAUGE
+    function renderSegmentedGauge(percentage) {
+      const group = document.getElementById('gaugeSegmentsGroup');
+      if (!group) return;
+      group.innerHTML = '';
+
+      const totalSegments = 12;
+      const cx = 150;
+      const cy = 150;
+      const rOuter = 134.67;
+      const rInner = 91.46;
+      const gapDeg = 2.8;
+      const spanDeg = (180 - gapDeg * (totalSegments - 1)) / totalSegments;
+      const activeCount = Math.round((percentage / 100) * totalSegments);
+
+      for (let i = 0; i < totalSegments; i++) {
+        const startDeg = 180 + i * (spanDeg + gapDeg);
+        const endDeg = startDeg + spanDeg;
+        const pathStr = describeArcSegment(cx, cy, rInner, rOuter, startDeg, endDeg);
+        const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathEl.setAttribute('d', pathStr);
+
+        // Registered is solid Brand Blue (#1D6EF5), Casual is Mint Green (#6EE7B7)
+        if (i < activeCount) {
+          pathEl.setAttribute('fill', '#1D6EF5');
+        } else {
+          pathEl.setAttribute('fill', '#6EE7B7');
+        }
+        pathEl.setAttribute('stroke', '#FFFFFF');
+        pathEl.setAttribute('stroke-width', '2');
+        pathEl.setAttribute('stroke-linejoin', 'round');
+        group.appendChild(pathEl);
+      }
+    }
+
+    function describeArcSegment(cx, cy, rInner, rOuter, startAngleDeg, endAngleDeg) {
+      const p1 = polarToCartesian(cx, cy, rOuter, startAngleDeg);
+      const p2 = polarToCartesian(cx, cy, rOuter, endAngleDeg);
+      const p3 = polarToCartesian(cx, cy, rInner, endAngleDeg);
+      const p4 = polarToCartesian(cx, cy, rInner, startAngleDeg);
+
+      const largeArc = endAngleDeg - startAngleDeg > 180 ? 1 : 0;
+
+      return [
+        'M', p1.x.toFixed(2), p1.y.toFixed(2),
+        'A', rOuter, rOuter, 0, largeArc, 1, p2.x.toFixed(2), p2.y.toFixed(2),
+        'L', p3.x.toFixed(2), p3.y.toFixed(2),
+        'A', rInner, rInner, 0, largeArc, 0, p4.x.toFixed(2), p4.y.toFixed(2),
+        'Z'
+      ].join(' ');
+    }
+
+    function polarToCartesian(cx, cy, r, angleDeg) {
+      const rad = (angleDeg * Math.PI) / 180.0;
+      return {
+        x: cx + r * Math.cos(rad),
+        y: cy + r * Math.sin(rad)
+      };
+    }
+
+    // 7. WEEKLY REGISTERED VS CASUAL ACTIVITY CHART
+    function setWeeklyMixMetric(metric) {
+      weeklyMixMetric = metric;
+      const btnVol = document.getElementById('wmBtn-vol');
+      const btnPct = document.getElementById('wmBtn-pct');
+      if (btnVol && btnPct) {
+        if (metric === 'vol') {
+          btnVol.className = 'px-2 py-0.5 rounded-md font-semibold bg-white text-ink shadow-xs transition';
+          btnPct.className = 'px-2 py-0.5 rounded-md font-medium text-muted hover:text-ink transition';
+        } else {
+          btnVol.className = 'px-2 py-0.5 rounded-md font-medium text-muted hover:text-ink transition';
+          btnPct.className = 'px-2 py-0.5 rounded-md font-semibold bg-white text-ink shadow-xs transition';
+        }
+      }
+      renderWeeklyMixChart();
+    }
+
+    function renderWeeklyMixChart() {
+      const canvas = document.getElementById('weeklyMixCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (weeklyMixChart) weeklyMixChart.destroy();
+
+      const yrKey = DB.weeklyMix[currentYear] ? currentYear : 'all';
+      const d = DB.weeklyMix[yrKey];
+      const isVol = weeklyMixMetric === 'vol';
+
+      const regData = isVol ? d.reg : d.regPct;
+      const casData = isVol ? d.cas : d.casPct;
+
+      const chartH = (canvas.parentElement ? canvas.parentElement.clientHeight : 0) || 190;
+
+      // Blue gradient for Registered: light blue fading downwards to transparent white
+      const blueGrad = ctx.createLinearGradient(0, 0, 0, chartH);
+      blueGrad.addColorStop(0, 'rgba(29, 110, 245, 0.28)');
+      blueGrad.addColorStop(0.65, 'rgba(96, 165, 250, 0.08)');
+      blueGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+      // Mint green gradient for Casual: shaded mint green fading downwards to transparent white
+      const greenGrad = ctx.createLinearGradient(0, 0, 0, chartH);
+      greenGrad.addColorStop(0, 'rgba(110, 231, 183, 0.45)');
+      greenGrad.addColorStop(0.65, 'rgba(110, 231, 183, 0.10)');
+      greenGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+      weeklyMixChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: DB.weeklyMix.labels,
+          datasets: [
+            {
+              label: 'Registered',
+              data: regData,
+              borderColor: '#1D6EF5',
+              backgroundColor: blueGrad,
+              borderWidth: 2.5,
+              pointRadius: 3.5,
+              pointHoverRadius: 6,
+              pointBackgroundColor: '#1D6EF5',
+              pointBorderColor: '#FFFFFF',
+              pointBorderWidth: 2,
+              fill: true,
+              tension: 0.35
+            },
+            {
+              label: 'Casual',
+              data: casData,
+              borderColor: '#059669',
+              backgroundColor: greenGrad,
+              borderWidth: 2.5,
+              pointRadius: 3.5,
+              pointHoverRadius: 6,
+              pointBackgroundColor: '#6EE7B7',
+              pointBorderColor: '#059669',
+              pointBorderWidth: 2,
+              fill: true,
+              tension: 0.35
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 12, bottom: 4, left: 2, right: 8 } },
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#111827',
+              titleColor: '#FFFFFF',
+              bodyColor: '#E2E8F0',
+              padding: 10,
+              cornerRadius: 10,
+              callbacks: {
+                label: (ctx) => {
+                  const dayIdx = ctx.dataIndex;
+                  const regV = Math.round(d.reg[dayIdx]).toLocaleString();
+                  const casV = Math.round(d.cas[dayIdx]).toLocaleString();
+                  const regP = d.regPct[dayIdx].toFixed(1);
+                  const casP = d.casPct[dayIdx].toFixed(1);
+                  if (ctx.datasetIndex === 0) {
+                    return ` Registered: ${regV}/d (${regP}%)`;
+                  } else {
+                    return ` Casual: ${casV}/d (${casP}%)`;
+                  }
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              border: { display: false },
+              ticks: { color: '#64748B', font: { size: 11, weight: '500' } }
+            },
+            y: {
+              grid: { color: 'rgba(241, 245, 249, 0.9)' },
+              border: { display: false },
+              ticks: {
+                color: '#94A3B8',
+                font: { size: 10 },
+                callback: (v) => isVol ? (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v) : v + '%'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // 8. GLOBAL FILTERS & KPI UPDATER
+    function setGlobalYear(yr) {
+      currentYear = yr;
+      const map = { all: '2011–2012', '2011': '2011', '2012': '2012' };
+      ['all', '2011', '2012'].forEach(k => {
+        const el = document.getElementById('yr-' + k);
+        if (k === yr) {
+          el.className = 'pill-btn pill-btn-active';
+          el.textContent = '• ' + map[k];
+        } else {
+          el.className = 'pill-btn';
+          el.textContent = map[k];
+        }
+      });
+      refreshKPIsAndGauge();
+      renderHeroChart();
+      renderHeatmapGrid();
+    }
+
+    function setGlobalDayType(dt) {
+      currentDayType = dt;
+      const map = { all: 'All Days', working: 'Working Days', weekend: 'Weekends & Hol' };
+      ['all', 'working', 'weekend'].forEach(k => {
+        const el = document.getElementById('dt-' + k);
+        if (k === dt) {
+          el.className = 'pill-btn pill-btn-active';
+          el.textContent = '• ' + map[k];
+        } else {
+          el.className = 'pill-btn';
+          el.textContent = map[k];
+        }
+      });
+      refreshKPIsAndGauge();
+      renderHeroChart();
+      renderHeatmapGrid();
+    }
+
+    function refreshKPIsAndGauge() {
+      const d = DB.kpi[currentYear][currentDayType];
+      document.getElementById('kpi1Title').textContent = d.t1;
+      document.getElementById('kpi1Value').textContent = d.v1;
+      document.getElementById('kpi1Pill').textContent = d.p1;
+      document.getElementById('kpi1Sub').textContent = d.s1;
+
+      document.getElementById('kpi2Value').textContent = d.v2;
+      document.getElementById('kpi2Dec').textContent = d.d2;
+      document.getElementById('kpi2Pill').textContent = d.p2;
+      document.getElementById('kpi2Sub').textContent = d.s2;
+
+      document.getElementById('kpi3Value').textContent = d.v3;
+      document.getElementById('kpi3Pill').textContent = d.p3;
+      document.getElementById('kpi3Sub').textContent = d.s3;
+
+      document.getElementById('kpi4Value').textContent = d.v4;
+      document.getElementById('kpi4Pill').textContent = d.p4;
+      document.getElementById('kpi4Sub').textContent = d.s4;
+
+      const badgeEl = document.getElementById('gaugeFilterBadge');
+      if (badgeEl) badgeEl.textContent = d.badge;
+      const bigPctEl = document.getElementById('gaugeBigPct');
+      if (bigPctEl) bigPctEl.textContent = d.regPct.toFixed(1) + '%';
+      const centerSubEl = document.getElementById('gaugeCenterSub');
+      if (centerSubEl) centerSubEl.innerHTML = `vs. <span class="font-medium text-emerald-600">${(100 - d.regPct).toFixed(1)}% Casual</span>`;
+      renderSegmentedGauge(d.regPct);
+      renderWeeklyMixChart();
+    }
+
+    // INITIALIZE
+    window.onload = function () {
+      refreshKPIsAndGauge();
+      renderHeroChart();
+      renderHeatmapGrid();
+    };
+  </script>
+</body>
+</html>
